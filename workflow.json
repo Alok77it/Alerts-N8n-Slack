@@ -1,0 +1,130 @@
+{
+  "name": "Alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -352,
+        -80
+      ],
+      "id": "5469b480-e870-41a4-bb57-f7ca82100f56",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "command": "python3 /server_monitor.py"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -80
+      ],
+      "id": "0df945a7-8f90-4cc4-b61d-399929a5caf9",
+      "name": "Execute a command",
+      "credentials": {
+        "sshPassword": {
+          "id": "YRHr4JOSgPfcBeDx",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the JSON from previous node\nconst data = $json;\n\n// Parse system info\nconst system = data.system || {};\nconst highCpuProcesses = data.high_cpu_processes || [];\nconst services = data.services || {};\nconst cronJobs = data.cron_jobs || {};\nconst backupExists = data.backup_exists;\nconst logs = data.logs || [];\n\n// Prepare alert messages\nlet alerts = [];\n\n// Check CPU usage\nif (system.cpu_percent > 80) {\n    alerts.push(`⚠️ High CPU usage detected: ${system.cpu_percent}%`);\n}\n\n// Check RAM usage\nconst ramUsedPercent = (system.ram_used / system.ram_total) * 100;\nif (ramUsedPercent > 85) {\n    alerts.push(`⚠️ High RAM usage detected: ${ramUsedPercent.toFixed(1)}%`);\n}\n\n// Check backup\nif (!backupExists) {\n    alerts.push(\"⚠️ Backup is missing!\");\n}\n\n// Check services\nfor (const [service, running] of Object.entries(services)) {\n    if (!running) {\n        alerts.push(`⚠️ Service ${service} is down!`);\n    }\n}\n\n// Check for failed cron jobs\nfor (const [job, success] of Object.entries(cronJobs)) {\n    if (!success) {\n        alerts.push(`⚠️ Cron job failed: ${job}`);\n    }\n}\n\n// Check for cert-manager CrashLoopBackOff in logs\nconst certManagerErrors = logs.filter(line => \n    line.includes(\"cert-manager-cainjector\") && line.includes(\"CrashLoopBackOff\")\n);\nif (certManagerErrors.length > 0) {\n    alerts.push(`⚠️ cert-manager-cainjector is in CrashLoopBackOff!`);\n}\n\n// Send to Slack if there are alerts\nif (alerts.length > 0) {\n    return [{\n        json: {\n            text: `*Server Alerts:*\\n${alerts.join(\"\\n\")}`\n        }\n    }];\n} else {\n    return [{\n        json: {\n            text: \"✅ All systems operational.\"\n        }\n    }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        -80
+      ],
+      "id": "1e9b948c-729f-4241-937c-0b20f91b7a67",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#ys-alerts",
+          "mode": "name"
+        },
+        "text": "={{$json[\"text\"]}}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        384,
+        -80
+      ],
+      "id": "02edad95-e465-4e2e-af97-7d9f09cd8c0e",
+      "name": "Send a message",
+      "webhookId": "12651ab4-caad-4801-9bde-723e20ca6399",
+      "credentials": {
+        "slackApi": {
+          "id": "MHBLXoeV5djx38gg",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute a command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a command": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "63135b6f-3158-4763-a4a2-f40e5eee142b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0f12c85c960ef776acd46c75ba99b5fc9aaa7e1f1f72cb4de199d3bcc6b6e004"
+  },
+  "id": "AXwE50ZnBg4eYGt9",
+  "tags": []
+}
