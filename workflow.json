@@ -8,8 +8,8 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -2256,
-        -432
+        -2384,
+        -464
       ],
       "id": "cdda65c0-8a00-416d-87b0-65a056d2d449",
       "name": "Merge"
@@ -174,8 +174,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2032,
-        -240
+        -1888,
+        -336
       ],
       "id": "03ff6964-a9c8-451a-b725-ddb1e05c266e",
       "name": "Code1"
@@ -194,8 +194,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        -2032,
-        -400
+        -1904,
+        -608
       ],
       "id": "bf51e5e5-3502-4fe5-b913-a60500ed68a2",
       "name": "Send a message1",
@@ -206,6 +206,84 @@
           "name": "Slack account"
         }
       }
+    },
+    {
+      "parameters": {
+        "content": "**🕒 Trigger (Every 10 mins)**\nStarts the workflow automatically at fixed intervals.",
+        "height": 224,
+        "width": 672,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3520,
+        -416
+      ],
+      "typeVersion": 1,
+      "id": "5f11ec95-fafa-4971-8c44-c03207100717",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "**⚙️ Run Server Script**\n\n- Checks server health\n\n- Verifies daily / weekly / monthly backups",
+        "height": 1248,
+        "width": 912
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3520,
+        -912
+      ],
+      "typeVersion": 1,
+      "id": "37996777-1f98-4512-9f4d-87c1113a745f",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "**📊 Combine Results**\n- Collects & merges output from all servers into one dataset.",
+        "height": 592,
+        "width": 336,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2496,
+        -624
+      ],
+      "typeVersion": 1,
+      "id": "62f664fa-d179-4c5c-a5e7-0c637a225464",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "**🧹 Filter + Format**\n- Cleans data → Builds a readable table for alerts.",
+        "height": 272,
+        "width": 432,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2128,
+        -400
+      ],
+      "typeVersion": 1,
+      "id": "0439d8cc-cc29-4a79-b0e8-665b836cac95",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "**💬 Slack Alerts**\n- Sends formatted notifications via our Slack App to the team.",
+        "height": 352,
+        "width": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2112,
+        -784
+      ],
+      "typeVersion": 1,
+      "id": "4325d560-c49c-4d4a-842f-9f900801ba95",
+      "name": "Sticky Note4"
     }
   ],
   "pinData": {},
@@ -357,7 +435,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "AXwE50ZnBg4eYGt9"
   },
-  "versionId": "24568620-30bb-4ca3-8fd7-e3d5fd9afa97",
+  "versionId": "338a0cdd-1920-4e65-a01c-e8a205463d6d",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0f12c85c960ef776acd46c75ba99b5fc9aaa7e1f1f72cb4de199d3bcc6b6e004"
