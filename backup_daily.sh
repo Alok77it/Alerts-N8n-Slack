@@ -1,46 +1,106 @@
 #!/bin/bash
-#
-# Daily Backup Script for /home using rsync
-# Keeps backups as folders and deletes backups older than 7 days
-#
+# ===========================================================
+#  Client Direct Backup Script (Multiple DB Credentials)
+#  No Local Storage — Streams to Backup Server
+# ===========================================================
 
-# --- CONFIG ---
-SRC="/home/"
-DEST="/data/backup/main/Youstable/daily"
-USER="root"
-HOST="69.10.34.254"
+### === CONFIG SECTION === ###
+BACKUP_SERVER="69.10.34.254"
+BACKUP_USER="root"
+BACKUP_PATH="/data/main"
+CLIENT_NAME="Googiehost"      # Change this per client
+SSH_PORT="22"
 
-# --- DATE ---
-DATE=$(date +%F)
-BACKUP_DIR="backup-$DATE"
+# List of databases with credentials: "dbname:user:password"
+DB_CREDENTIALS=(
+  "seo_tools:seo_tools:eer50V65NzcvsVIq"
+  "googiehost:googiehost:n9jf1ty3sN2gjrT5"
+  "LTD:ghltd:^l#KaMgCX06odtnM"
+  "tools:tools:7aXAq7AlbQSxEUw0"
+  "support:support:DSY7JSxIitCpvE8Y"
+  "coupons:coupons:zQkWHYV5HjXXkOUZYvyi"
+  "hlguide:hlguide:1hywTPc0NlxA"
+  "blog:UKjcHAiOH9AqSFlt:BTlR2N2G40OfebsG"
+)
 
-echo "[INFO] Starting daily backup: $DATE"
+# Rotation rules
+KEEP_DAILY=7
+KEEP_WEEKLY=4
+KEEP_MONTHLY=12
 
-# --- CREATE REMOTE DIRECTORY ---
-ssh $USER@$HOST "mkdir -p $DEST/$BACKUP_DIR"
+# Day definitions
+WEEKLY_DAY=7     # Sunday (1=Monday ... 7=Sunday)
+MONTHLY_DAY=1    # 1st of month
+### === END CONFIG === ###
 
-# --- RSYNC TO REMOTE (with compression, verbose, delete old files inside daily folder) ---
-rsync -avz --delete "$SRC" "$USER@$HOST:$DEST/$BACKUP_DIR/"
 
-# --- VERIFY ON REMOTE ---
-echo "[INFO] Verifying backup on $HOST ..."
-ssh $USER@$HOST "
-  if [ -d $DEST/$BACKUP_DIR ]; then
-    SIZE=\$(du -sh $DEST/$BACKUP_DIR | cut -f1)
-    MODDATE=\$(stat -c%y $DEST/$BACKUP_DIR)
-    echo \"[OK] Backup exists: $DEST/$BACKUP_DIR\"
-    echo \"     Size: \$SIZE\"
-    echo \"     Modified: \$MODDATE\"
-  else
-    echo \"[ERROR] Backup directory not found!\"
+# ======= SETUP =======
+DATE=$(date +%Y-%m-%d)
+TIME=$(date +%H%M%S)
+DAY_OF_MONTH=$(date +%d)
+DAY_OF_WEEK=$(date +%u)
+BACKUP_TYPE="daily"
+
+if [[ "$DAY_OF_MONTH" -eq "$MONTHLY_DAY" ]]; then
+    BACKUP_TYPE="monthly"
+elif [[ "$DAY_OF_WEEK" -eq "$WEEKLY_DAY" ]]; then
+    BACKUP_TYPE="weekly"
+fi
+
+REMOTE_DIR="$BACKUP_PATH/$CLIENT_NAME/$BACKUP_TYPE/$DATE"
+
+echo "===================================================="
+echo "Starting $BACKUP_TYPE backup for $CLIENT_NAME at $(date)"
+echo "===================================================="
+
+# ======= CREATE REMOTE DIRECTORY =======
+ssh -p "$SSH_PORT" "$BACKUP_USER@$BACKUP_SERVER" "mkdir -p '$REMOTE_DIR/home' '$REMOTE_DIR/databases'"
+
+# ======= /home BACKUP (streamed) =======
+echo "[+] Backing up /home directly to remote..."
+tar -cpf - /home 2>/dev/null | gzip | ssh -p "$SSH_PORT" "$BACKUP_USER@$BACKUP_SERVER" \
+  "cat > '$REMOTE_DIR/home/home-$DATE-$TIME.tar.gz'"
+if [[ $? -ne 0 ]]; then
+    echo "[-] /home backup failed!"
     exit 1
-  fi
-"
+fi
+echo "[✓] /home backup complete"
 
-# --- RETENTION: DELETE BACKUPS OLDER THAN 7 DAYS ---
-echo "[INFO] Cleaning old backups on $HOST ..."
-ssh $USER@$HOST "
-  find $DEST -maxdepth 1 -type d -name 'backup-*' -mtime +7 -print -exec rm -rf {} \;
-"
+# ======= DATABASE BACKUPS (streamed) =======
+echo "[+] Backing up MySQL databases..."
+for entry in "${DB_CREDENTIALS[@]}"; do
+    IFS=':' read -r DB USER PASS <<< "$entry"
+    echo "    Dumping $DB..."
+    mysqldump -u"$USER" -p"$PASS" --single-transaction --quick "$DB" 2>/tmp/db_err.log \
+    | gzip | ssh -p "$SSH_PORT" "$BACKUP_USER@$BACKUP_SERVER" \
+      "cat > '$REMOTE_DIR/databases/${DB}-$DATE-$TIME.sql.gz'"
+    if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+        echo "[-] Failed to dump $DB: $(cat /tmp/db_err.log | tail -1)"
+    else
+        echo "    [✓] $DB backup complete"
+    fi
+done
+rm -f /tmp/db_err.log
 
-echo "[INFO] Daily backup completed: $DATE"
+
+# ======= REMOTE ROTATION =======
+echo "[+] Cleaning old backups on backup server..."
+ssh -p "$SSH_PORT" "$BACKUP_USER@$BACKUP_SERVER" bash <<EOF
+cd "$BACKUP_PATH/$CLIENT_NAME" || exit 0
+for t in daily weekly monthly; do
+    case \$t in
+        daily)   KEEP=$KEEP_DAILY ;;
+        weekly)  KEEP=$KEEP_WEEKLY ;;
+        monthly) KEEP=$KEEP_MONTHLY ;;
+    esac
+    [ -d "\$t" ] || continue
+    cd "\$t"
+    ls -1tr | head -n -\$KEEP | xargs -r rm -rf
+    cd ..
+done
+EOF
+
+echo "[✓] Remote cleanup complete"
+echo "===================================================="
+echo "Backup completed successfully for $CLIENT_NAME at $(date)"
+echo "===================================================="
