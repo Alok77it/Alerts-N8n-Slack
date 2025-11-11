@@ -1,127 +1,196 @@
 #!/usr/bin/env python3
-import os
-import shlex
-import subprocess
-import sys
-import psutil
-import socket
-import datetime
-from typing import List, Tuple
+import subprocess, os, shlex, datetime, socket
 
-# --- CONFIG ---
-REMOTE_USER = os.getenv("REMOTE_USER", "root")
-REMOTE_HOST = os.getenv("REMOTE_HOST", "69.10.34.254")
-REMOTE_BACKUP_BASE = os.getenv("REMOTE_BACKUP_BASE", "/data/backup/main/Youstable")
-THRESHOLD = int(os.getenv("THRESHOLD", "80"))  # % usage alert
-BACKUP_PERIODS = os.getenv("BACKUP_PERIODS", "daily,weekly,monthly").split(",")
+# ===========================================================
+#  Client Monitoring & Backup Verification Script
+#  Runs on each client server
+#  Backup server: 69.10.34.254 (SSH key-based)
+# ===========================================================
 
-SSH_OPTS = os.getenv(
-    "SSH_OPTS",
-    "-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new"
-)
+# ===== CONFIG =====
+CLIENT_NAME = "Googiehost"   # Change for each client
+BACKUP_SERVER = "69.10.34.254"
+BACKUP_USER = "root"
+BACKUP_PATH = "/data/main"
+SSH_KEY = "~/.ssh/id_ed25519"  # adjust if using another key path
 
-# --- Logging Helpers ---
-def log_info(msg: str) -> None:
-    print(f"[INFO] {msg}")
+# DATABASES: format name:user:password  (passwords may include ':')
+DATABASES = [
+    "seo_tools:seo_tools:eer50V65NzcvsVIq",
+    "googiehost:googiehost:n9jf1ty3sN2gjrT5",
+    "LTD:ghltd:^l#KaMgCX06odtnM",
+    "tools:tools:7aXAq7AlbQSxEUw0",
+    "support:support:DSY7JSxIitCpvE8Y",
+    "coupons:coupons:zQkWHYV5HjXXkOUZYvyi",
+    "hlguide:hlguide:1hywTPc0NlxA",
+    "blog:UKjcHAiOH9AqSFlt:BTlR2N2G40OfebsG"
+]
+# ===================
 
-def log_ok(msg: str) -> None:
-    print(f"[OK] {msg}")
 
-def log_err(msg: str) -> None:
-    print(f"[ERROR] {msg}")
+def run_local(cmd):
+    """Run a local shell command"""
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    out, err = p.communicate()
+    return p.returncode, out.strip(), err.strip()
 
-def log_alert(msg: str) -> None:
-    print(f"[ALERT] {msg}")
 
-# --- Remote Command ---
-def run_remote_cmd(cmd: str) -> Tuple[int, str, str]:
-    base = ["ssh"] + shlex.split(SSH_OPTS) + [f"{REMOTE_USER}@{REMOTE_HOST}"]
-    full_cmd = base + [cmd]
-    try:
-        proc = subprocess.run(full_cmd, text=True, capture_output=True, check=False)
-        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
-    except Exception as e:
-        return 255, "", str(e)
+def ssh_remote(cmd):
+    """Run a command on the backup server via SSH"""
+    ssh = f"ssh -i {os.path.expanduser(SSH_KEY)} -o StrictHostKeyChecking=no -p 22 {BACKUP_USER}@{BACKUP_SERVER}"
+    return run_local(f"{ssh} {shlex.quote(cmd)}")
 
-def list_remote_dir(path: str) -> List[str]:
-    quoted = shlex.quote(path)
-    rc, out, err = run_remote_cmd(f"ls -1 {quoted} 2>/dev/null")
-    if rc != 0 or not out:
-        return []
-    return [line for line in out.splitlines() if line.strip()]
 
-# --- Backup Check ---
-def check_backup() -> bool:
-    today = datetime.date.today()
-    week = today.isocalendar()[1]   # ISO week number
-    year = today.isocalendar()[0]   # ISO year
-    month = today.strftime("%Y-%m")
+def get_resources():
+    """Get CPU, memory, and disk usage"""
+    res = {}
+    rc, out, _ = run_local("cat /proc/loadavg | awk '{print $1,$2,$3}'")
+    res["cpu_load"] = out or "N/A"
 
-    expected = {
-        "daily": f"backup-{today.strftime('%Y-%m-%d')}",
-        "weekly": f"backup-{year}-W{week:02d}",
-        "monthly": f"backup-{month}",
+    rc, out, _ = run_local("free -m | awk 'NR==2{print $2,$3,$4,$7}'")
+    if out:
+        total, used, free, avail = out.split()
+        res["mem"] = {"total": total, "used": used, "free": free, "avail": avail}
+    else:
+        res["mem"] = {"total": "0", "used": "0", "free": "0", "avail": "0"}
+
+    rc, out, _ = run_local("df -h /home | awk 'NR==2{print $2,$3,$4,$5}' || df -h / | awk 'NR==2{print $2,$3,$4,$5}'")
+    if out:
+        size, used, avail, perc = out.split()
+        res["disk"] = {"size": size, "used": used, "avail": avail, "perc": perc}
+    else:
+        res["disk"] = {"size": "N/A", "used": "N/A", "avail": "N/A", "perc": "N/A"}
+
+    return res
+
+
+def mysql_stats(dbname, user, password):
+    """Collect database stats"""
+    stats = {"tables": 0, "rows": 0, "columns": 0}
+    queries = {
+        "tables": f"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{dbname}';",
+        "rows": f"SELECT COALESCE(SUM(TABLE_ROWS),0) FROM information_schema.tables WHERE table_schema='{dbname}';",
+        "columns": f"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='{dbname}';"
     }
 
-    ok = True
-    for period in [p.strip() for p in BACKUP_PERIODS if p.strip()]:
-        path = f"{REMOTE_BACKUP_BASE.rstrip('/')}/{period}"
-        backups = list_remote_dir(path)
+    for key, q in queries.items():
+        cmd = f"mysql -u{user} -p'{password}' -N -B -e {shlex.quote(q)} 2>/dev/null"
+        rc, out, _ = run_local(cmd)
+        if rc == 0 and out:
+            try:
+                stats[key] = int(out.strip())
+            except ValueError:
+                stats[key] = 0
+    return stats
 
-        if not backups:
-            log_err(f"No {period} backups found at {path}!")
-            ok = False
-            continue
 
-        backups.sort()
-        latest = backups[-1]
+def check_backup(client_name, databases):
+    """Verify backup presence and validity on backup server"""
+    today = datetime.date.today()
+    remote_dirs = [
+        f"{BACKUP_PATH}/{client_name}/daily/{today}",
+        f"{BACKUP_PATH}/{client_name}/weekly/{today.year}-W{today.isocalendar()[1]:02d}",
+        f"{BACKUP_PATH}/{client_name}/monthly/{today.year}-{today.month:02d}"
+    ]
 
-        if expected.get(period) in backups:
-            log_ok(f"{period.capitalize()} backup found ✅ : {expected[period]}")
-        else:
-            log_alert(f"{period.capitalize()} backup MISSING ❌ (expected {expected[period]})")
-            log_info(f"Latest available {period} backup: {latest}")
-            ok = False
+    found_dir = None
+    for d in remote_dirs:
+        rc, _, _ = ssh_remote(f"test -d {shlex.quote(d)}")
+        if rc == 0:
+            found_dir = d
+            break
 
-    return ok
+    if not found_dir:
+        return {"found": False, "msg": "No backup directory found"}
 
-# --- System Check ---
-def check_system(threshold: int) -> None:
-    try:
-        hostname = socket.gethostname()
-        log_info(f"Hostname: {hostname}")
-    except Exception:
-        log_info("Hostname: Unknown")
+    result = {"found": True, "path": found_dir, "home": {}, "dbs": {}}
 
-    # CPU Usage
-    cpu_usage = psutil.cpu_percent(interval=2)
-    log_info(f"CPU Usage: {cpu_usage:.0f}%")
-    if cpu_usage > threshold:
-        log_alert("High CPU usage!")
-
-    # RAM Usage
-    ram = psutil.virtual_memory()
-    log_info(f"RAM Usage: {ram.percent:.0f}%")
-    if ram.percent > threshold:
-        log_alert("High RAM usage!")
-
-    # Disk Usage (/)
-    disk = psutil.disk_usage('/')
-    log_info(f"Disk Usage: {disk.percent:.0f}%")
-    if disk.percent > threshold:
-        log_alert("High storage usage!")
-
-# --- Main ---
-def main() -> int:
-    check_system(THRESHOLD)
-    backup_ok = check_backup()
-
-    if backup_ok:
-        print("[FINAL STATUS] ✅ All required backups (daily/weekly/monthly) exist & system OK.")
-        return 0
+    # Check /home backup
+    rc, out, _ = ssh_remote(f"ls -1t {found_dir}/home/home-*.tar.gz 2>/dev/null | head -n 1")
+    if rc == 0 and out:
+        f = out.strip()
+        rc2, size, _ = ssh_remote(f"stat -c %s {shlex.quote(f)}")
+        result["home"] = {"file": f, "size": int(size) if size.isdigit() else 0}
     else:
-        print("[FINAL STATUS] ❌ Missing backups detected or system issues.")
-        return 1
+        result["home"] = {"file": None, "size": 0}
+
+    # Check database backups inside "databases/" directory
+    for entry in databases:
+        parts = entry.split(":", 2)
+        if len(parts) != 3:
+            print(f"⚠️  Skipping invalid entry: {entry}")
+            continue
+        db, user, pw = parts
+
+        remote_db_path = f"{found_dir}/databases"
+        rc, out, _ = ssh_remote(f"ls -1t {remote_db_path}/{db}-*.sql.gz 2>/dev/null | head -n 1")
+
+        if rc == 0 and out:
+            f = out.strip()
+            rc2, size, _ = ssh_remote(f"stat -c %s {shlex.quote(f)}")
+            rc3, content, _ = ssh_remote(f"gzip -cd {shlex.quote(f)} | grep -Eic 'create table|insert into'")
+            result["dbs"][db] = {
+                "file": f,
+                "size": int(size) if size.isdigit() else 0,
+                "has_data": int(content.strip()) > 0
+            }
+        else:
+            result["dbs"][db] = {"file": None, "size": 0, "has_data": False}
+
+    return result
+
+
+def print_report():
+    """Generate and print system and backup report"""
+    hostname = socket.gethostname()
+    print(f"\n🔍 SYSTEM REPORT for {CLIENT_NAME} ({hostname}) — {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 100)
+
+    res = get_resources()
+    print(f"CPU Load: {res['cpu_load']}")
+    mem = res["mem"]
+    print(f"Memory: {mem['used']}/{mem['total']} MB used | Free: {mem['free']} MB | Avail: {mem['avail']} MB")
+    disk = res["disk"]
+    print(f"/home usage: {disk['used']}/{disk['size']} ({disk['perc']}) available {disk['avail']}")
+    print("\n📦 DATABASE DETAILS:")
+
+    total_tables = total_rows = total_cols = 0
+    for entry in DATABASES:
+        parts = entry.split(":", 2)
+        if len(parts) != 3:
+            print(f"⚠️  Invalid entry: {entry}")
+            continue
+        db, user, pw = parts
+        stats = mysql_stats(db, user, pw)
+        total_tables += stats["tables"]
+        total_rows += stats["rows"]
+        total_cols += stats["columns"]
+        print(f"  {db:<15} ➜ Tables: {stats['tables']:<5} Rows: {stats['rows']:<8} Columns: {stats['columns']:<6}")
+
+    print(f"\n📊 TOTALS ➜ Tables: {total_tables}, Rows: {total_rows}, Columns: {total_cols}")
+    print("\n💾 BACKUP VERIFICATION:")
+
+    backup = check_backup(CLIENT_NAME, DATABASES)
+    if not backup["found"]:
+        print(f"❌ Backup not found: {backup['msg']}")
+        return
+
+    print(f"✅ Backup folder: {backup['path']}")
+    if backup["home"]["file"]:
+        print(f"  /home backup: {backup['home']['file']} ({backup['home']['size']} bytes)")
+    else:
+        print(f"  ⚠️ /home backup missing!")
+
+    for db, info in backup["dbs"].items():
+        if info["file"]:
+            status = "✅" if info["has_data"] else "⚠️"
+            print(f"  DB {db:<15}: {status} {info['file']} ({info['size']} bytes)")
+        else:
+            print(f"  ❌ DB {db:<15}: No backup found")
+
+    print("=" * 100)
+    print("✔ Report completed.\n")
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    print_report()
