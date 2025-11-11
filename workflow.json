@@ -3,149 +3,16 @@
   "nodes": [
     {
       "parameters": {
-        "numberInputs": 10
+        "numberInputs": 7
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -2384,
-        -464
+        -2944,
+        -1856
       ],
       "id": "cdda65c0-8a00-416d-87b0-65a056d2d449",
       "name": "Merge"
-    },
-    {
-      "parameters": {
-        "command": "sudo python3 /usr/local/bin/monitor.py"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        -3104,
-        -864
-      ],
-      "id": "a15ed9ab-94b8-454a-9628-cbc5e88f9f2a",
-      "name": "Youstable",
-      "credentials": {
-        "sshPassword": {
-          "id": "vVkfpFt0iyweOMLP",
-          "name": "Youstable"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "command": "sudo python3 /usr/local/bin/monitor.py"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        -3056,
-        -576
-      ],
-      "id": "0af6e608-5ae6-4bd3-805d-5e3ea7b46f8a",
-      "name": "RDP",
-      "credentials": {
-        "sshPassword": {
-          "id": "t4N0TZVRRO1gLkYS",
-          "name": "RDP"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "command": "sudo python3 /usr/local/bin/monitor.py"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        -2752,
-        -384
-      ],
-      "id": "3493e5ca-3414-430c-9503-6e2b45e70136",
-      "name": "QH RDP",
-      "credentials": {
-        "sshPassword": {
-          "id": "vIOqGdPDjrLsbeqi",
-          "name": "QH RDP"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "command": "sudo python3 /usr/local/bin/monitor.py"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        -3056,
-        -176
-      ],
-      "id": "e89a011c-03cf-4ff9-ae57-760ecad3d52f",
-      "name": "QH Main",
-      "credentials": {
-        "sshPassword": {
-          "id": "0w3iw0ahIgazcOzk",
-          "name": "QH Main"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "command": "sudo python3 /usr/local/bin/monitor.py"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        -3056,
-        0
-      ],
-      "id": "e1e82bc6-5ff7-41c9-9a83-5227656b06e5",
-      "name": "QH Default",
-      "credentials": {
-        "sshPassword": {
-          "id": "vM09ZrAzbwZKxqsU",
-          "name": "QH Default"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "command": "sudo python3 /usr/local/bin/monitor.py"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        -3104,
-        176
-      ],
-      "id": "e660bcd7-60f3-4e00-9355-2dd36a6f9d8d",
-      "name": "GH Main",
-      "credentials": {
-        "sshPassword": {
-          "id": "7DmUPzZ1bpvKsqVa",
-          "name": "GH MAIN"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "command": "sudo python3 /usr/local/bin/monitor.py"
-      },
-      "type": "n8n-nodes-base.ssh",
-      "typeVersion": 1,
-      "position": [
-        -3056,
-        -720
-      ],
-      "id": "a037c856-5406-4686-8077-a8cf84d5756d",
-      "name": "GH clients",
-      "credentials": {
-        "sshPassword": {
-          "id": "cQkOCpz7yGqWlg70",
-          "name": "GH Clients"
-        }
-      }
     },
     {
       "parameters": {
@@ -153,7 +20,7 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 10
+              "minutesInterval": 20
             }
           ]
         }
@@ -161,24 +28,233 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -3008,
-        -384
+        -3744,
+        -1744
       ],
       "id": "d9d91d1a-ebb5-408e-9d01-6ce07b55409f",
       "name": "Schedule Trigger1"
     },
     {
       "parameters": {
-        "jsCode": "// Extract results\nconst servers = items.map(item => {\n  const out = item.json.stdout || \"\";\n  const lines = out.split(\"\\n\").map(l => l.trim()).filter(l => l);\n\n  let hostname = \"-\";\n  let cpu = \"-\";\n  let ram = \"-\";\n  let disk = \"-\";\n  let daily = \"❌ None\";\n  let weekly = \"❌ None\";\n  let monthly = \"❌ None\";\n\n  lines.forEach(line => {\n    if (line.includes(\"Hostname:\")) hostname = line.replace(\"[INFO] Hostname:\", \"\").trim();\n    if (line.includes(\"CPU Usage:\")) cpu = line.replace(\"[INFO] CPU Usage:\", \"\").trim();\n    if (line.includes(\"RAM Usage:\")) ram = line.replace(\"[INFO] RAM Usage:\", \"\").trim();\n    if (line.includes(\"Disk Usage:\")) disk = line.replace(\"[INFO] Disk Usage:\", \"\").trim();\n\n    // Daily backup check\n    if (line.includes(\"Daily backup found\")) {\n      const b = line.split(\":\").pop().trim();\n      daily = `✅ ${b}`;\n    }\n    if (line.includes(\"Daily backup MISSING\")) {\n      daily = \"❌ None\";\n    }\n\n    // Weekly backup check\n    if (line.includes(\"Weekly backup found\")) {\n      const b = line.split(\":\").pop().trim();\n      weekly = `✅ ${b}`;\n    }\n    if (line.includes(\"Weekly backup MISSING\")) {\n      weekly = \"❌ None\";\n    }\n    if (line.includes(\"Latest available weekly backup:\")) {\n      const b = line.split(\":\").pop().trim();\n      if (weekly === \"❌ None\") weekly = `📦 ${b}`; // show what exists\n    }\n\n    // Monthly backup check\n    if (line.includes(\"Monthly backup found\")) {\n      const b = line.split(\":\").pop().trim();\n      monthly = `✅ ${b}`;\n    }\n    if (line.includes(\"Monthly backup MISSING\")) {\n      monthly = \"❌ None\";\n    }\n  });\n\n  return { hostname, cpu, ram, disk, daily, weekly, monthly };\n});\n\n// Build Slack Markdown Table\nlet table = \"*📊 Server Health & Backup Status*\\n\";\ntable += \"```\";\ntable += \"Hostname                  | CPU   | RAM   | Disk  |       Daily       |       Weekly       |     Monthly\\n\";\ntable += \"--------------------------|-------|-------|-------|-------------------|-------------------|-------------\\n\";\n\nservers.forEach(s => {\n  table += `${s.hostname.padEnd(26)}| ${s.cpu.padEnd(5)} | ${s.ram.padEnd(5)} | ${s.disk.padEnd(5)} | ${s.daily.padEnd(17)} | ${s.weekly.padEnd(17)} | ${s.monthly}\\n`;\n});\n\ntable += \"```\";\n\n// Return for Slack\nreturn [{\n  json: {\n    text: table\n  }\n}];\n"
+        "jsCode": "// n8n Code Node — Server Health & Backup Report with Sizes\n// Input: array of items from Merge node (each with stdout from client scripts)\n// Output: Slack-formatted text message\n\nconst servers = [];\n\nfor (const item of items) {\n  const out = item.json.stdout || \"\";\n  if (!out.includes(\"SYSTEM REPORT\")) continue;\n\n  const server = {\n    hostname: \"-\",\n    cpu: \"-\",\n    ram: \"-\",\n    disk: \"-\",\n    totalTables: \"0\",\n    totalRows: \"0\",\n    totalCols: \"0\",\n    homeBackup: { status: \"❌ Missing\", size: \"0B\" },\n    dbBackups: [],\n  };\n\n  // --- Extract hostname\n  const nameMatch = out.match(/SYSTEM REPORT for (.*?) \\(/);\n  if (nameMatch) server.hostname = nameMatch[1].trim();\n\n  // --- Extract CPU Load\n  const cpuMatch = out.match(/CPU Load:\\s*([\\d\\.]+\\s+[\\d\\.]+\\s+[\\d\\.]+)/);\n  if (cpuMatch) server.cpu = cpuMatch[1].trim();\n\n  // --- Extract Memory Usage\n  const memMatch = out.match(/Memory:\\s*([\\d\\/]+ MB used.*?)/);\n  if (memMatch) server.ram = memMatch[1].trim();\n\n  // --- Extract Disk Usage\n  const diskMatch = out.match(/\\/home usage:\\s*(.*)/);\n  if (diskMatch) server.disk = diskMatch[1].trim();\n\n  // --- Extract Totals\n  const totalsMatch = out.match(/📊 TOTALS ➜ Tables:\\s*(\\d+), Rows:\\s*(\\d+), Columns:\\s*(\\d+)/);\n  if (totalsMatch) {\n    server.totalTables = totalsMatch[1];\n    server.totalRows = totalsMatch[2];\n    server.totalCols = totalsMatch[3];\n  }\n\n  // --- Extract /home backup info\n  const homeBackupMatch = out.match(/Home Backup:\\s*(✅|❌)\\s*\\((.*?)\\)/);\n  if (homeBackupMatch) {\n    server.homeBackup.status = homeBackupMatch[1].trim();\n    server.homeBackup.size = homeBackupMatch[2].trim();\n  } else {\n    // fallback: detect manually if line like \"/home_backup.tar.gz (2.4G)\"\n    const sizeLine = out.match(/\\/home.*?\\.tar\\.gz.*?\\((.*?)\\)/);\n    if (sizeLine) {\n      server.homeBackup.status = \"✅ Found\";\n      server.homeBackup.size = sizeLine[1].trim();\n    }\n  }\n\n  // --- Extract DB backup info and size\n  const dbLines = out.split(\"\\n\").filter(l => l.trim().startsWith(\"DB \"));\n  for (const line of dbLines) {\n    const dbMatch = line.match(/DB\\s+([^:]+):\\s*(✅|⚠️|❌).*?\\((.*?)\\)/);\n    if (dbMatch) {\n      const dbName = dbMatch[1].trim();\n      const status = dbMatch[2].trim();\n      const size = dbMatch[3]?.trim() || \"Unknown\";\n      server.dbBackups.push({ dbName, status, size });\n    } else {\n      // fallback if no size found\n      const dbSimple = line.match(/DB\\s+([^:]+):\\s*(✅|⚠️|❌)/);\n      if (dbSimple) {\n        server.dbBackups.push({\n          dbName: dbSimple[1].trim(),\n          status: dbSimple[2].trim(),\n          size: \"Unknown\",\n        });\n      }\n    }\n  }\n\n  servers.push(server);\n}\n\n// --- Build Slack Report ---\nlet report = `*📊 YouStable Server Health & Backup Report — ${new Date().toISOString().slice(0, 10)}*\\n\\n`;\n\nfor (const s of servers) {\n  report += `*🖥️ ${s.hostname}*\\n`;\n  report += `• *CPU Load:* ${s.cpu}\\n`;\n  report += `• *Memory:* ${s.ram}\\n`;\n  report += `• *Disk Usage:* ${s.disk}\\n`;\n  report += `• *Tables:* ${s.totalTables} | *Rows:* ${s.totalRows} | *Columns:* ${s.totalCols}\\n\\n`;\n\n  report += `• *Home Backup:* ${s.homeBackup.status} (${s.homeBackup.size})\\n`;\n\n  if (s.dbBackups.length > 0) {\n    report += `• *Database Backups:*\\n`;\n    s.dbBackups.forEach(db => {\n      report += `   └ ${db.dbName}: ${db.status} (${db.size})\\n`;\n    });\n  } else {\n    report += `• *Database Backups:* ❌ None found\\n`;\n  }\n\n  report += `\\n──────────────────────────────\\n\\n`;\n}\n\n// Output for Slack\nreturn [\n  {\n    json: {\n      text: report\n    }\n  }\n];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1888,
-        -336
+        -2672,
+        -1776
       ],
       "id": "03ff6964-a9c8-451a-b725-ddb1e05c266e",
       "name": "Code1"
+    },
+    {
+      "parameters": {
+        "content": "**🕒 Trigger (Every 20 mins)**\nStarts the workflow automatically at fixed intervals.",
+        "height": 224,
+        "width": 704,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -4016,
+        -1808
+      ],
+      "typeVersion": 1,
+      "id": "5f11ec95-fafa-4971-8c44-c03207100717",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "**⚙️ Run Server Script**\n\n- Checks server health\n\n- Verifies daily / weekly / monthly backups",
+        "height": 1216,
+        "width": 912
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -4016,
+        -2288
+      ],
+      "typeVersion": 1,
+      "id": "37996777-1f98-4512-9f4d-87c1113a745f",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "**📊 Combine Results**\n- Collects & merges output from all servers into one dataset.",
+        "height": 448,
+        "width": 336,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3104,
+        -1968
+      ],
+      "typeVersion": 1,
+      "id": "62f664fa-d179-4c5c-a5e7-0c637a225464",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "**🧹 Filter + Format**\n- Cleans data → Builds a readable table for alerts.",
+        "height": 448,
+        "width": 288,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2784,
+        -1968
+      ],
+      "typeVersion": 1,
+      "id": "0439d8cc-cc29-4a79-b0e8-665b836cac95",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "**💬 Slack Alerts**\n- Sends formatted notifications via our Slack App to the team.",
+        "height": 448,
+        "width": 288,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2496,
+        -1968
+      ],
+      "typeVersion": 1,
+      "id": "4325d560-c49c-4d4a-842f-9f900801ba95",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Every 20 mins Alerts AI Agents\n- **CPU usage** \n- **RAM usage**\n- **Disk Usage**\n- **Daily/weekly/monthly backup reports**",
+        "height": 1392,
+        "width": 1840,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -4032,
+        -2448
+      ],
+      "typeVersion": 1,
+      "id": "e58a1d1b-45ed-4ff9-ab5c-7a3c0e1690be",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "command": "python3 /monitor.py"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -3680,
+        -2288
+      ],
+      "id": "fccc0ebc-62fb-4f58-9bb0-034331dde800",
+      "name": "YouStable",
+      "credentials": {
+        "sshPassword": {
+          "id": "P9dy9jJQv58jtgBJ",
+          "name": "YouStable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "python3 /monitor.py"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -3680,
+        -2096
+      ],
+      "id": "6018b0a5-c928-4335-aa01-73b7d5c3a150",
+      "name": "Googiehost",
+      "credentials": {
+        "sshPassword": {
+          "id": "M1bCGkSi8Xtkl7V7",
+          "name": "Googiehost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "python3 /monitor.py"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -3440,
+        -1840
+      ],
+      "id": "459c366e-6adb-46fd-b976-41a448830896",
+      "name": "GH Client",
+      "credentials": {
+        "sshPassword": {
+          "id": "y34thAXf7RkX2wZC",
+          "name": "GH Client"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "python3 /monitor.py"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -3424,
+        -1680
+      ],
+      "id": "b6c3599b-b424-4dce-a3c6-73f7745cc2f9",
+      "name": "RDP",
+      "credentials": {
+        "sshPassword": {
+          "id": "BVoAwvMmNd8eJmre",
+          "name": "RDP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "python3 /monitor.py"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -3536,
+        -1520
+      ],
+      "id": "68ffe357-f9a9-4938-afdf-d483155a2748",
+      "name": "QHMain",
+      "credentials": {
+        "sshPassword": {
+          "id": "eGsgcjAToqvLsgCP",
+          "name": "QHMain"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "python3 /monitor.py"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -3776,
+        -1280
+      ],
+      "id": "779d35a7-96ac-4d89-b6a7-25200f7e416f",
+      "name": "QloudRDP",
+      "credentials": {
+        "sshPassword": {
+          "id": "HYl11O1T6Qf8k6XP",
+          "name": "QloudRDP"
+        }
+      }
     },
     {
       "parameters": {
@@ -188,102 +264,24 @@
           "value": "#ys-alerts",
           "mode": "name"
         },
-        "text": "={{$json[\"text\"]}}",
+        "text": "={{ $json.text }}",
         "otherOptions": {}
       },
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        -1904,
-        -608
+        -2464,
+        -1776
       ],
-      "id": "bf51e5e5-3502-4fe5-b913-a60500ed68a2",
-      "name": "Send a message1",
-      "webhookId": "12651ab4-caad-4801-9bde-723e20ca6399",
+      "id": "668bada2-50a2-4e41-8e87-95d0f61766d6",
+      "name": "Send a message",
+      "webhookId": "d859f8e1-c032-478c-9e50-ce012a3d2f66",
       "credentials": {
         "slackApi": {
           "id": "MHBLXoeV5djx38gg",
           "name": "Slack account"
         }
       }
-    },
-    {
-      "parameters": {
-        "content": "**🕒 Trigger (Every 10 mins)**\nStarts the workflow automatically at fixed intervals.",
-        "height": 224,
-        "width": 672,
-        "color": 5
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        -3520,
-        -416
-      ],
-      "typeVersion": 1,
-      "id": "5f11ec95-fafa-4971-8c44-c03207100717",
-      "name": "Sticky Note"
-    },
-    {
-      "parameters": {
-        "content": "**⚙️ Run Server Script**\n\n- Checks server health\n\n- Verifies daily / weekly / monthly backups",
-        "height": 1248,
-        "width": 912
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        -3520,
-        -912
-      ],
-      "typeVersion": 1,
-      "id": "37996777-1f98-4512-9f4d-87c1113a745f",
-      "name": "Sticky Note1"
-    },
-    {
-      "parameters": {
-        "content": "**📊 Combine Results**\n- Collects & merges output from all servers into one dataset.",
-        "height": 592,
-        "width": 336,
-        "color": 3
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        -2496,
-        -624
-      ],
-      "typeVersion": 1,
-      "id": "62f664fa-d179-4c5c-a5e7-0c637a225464",
-      "name": "Sticky Note2"
-    },
-    {
-      "parameters": {
-        "content": "**🧹 Filter + Format**\n- Cleans data → Builds a readable table for alerts.",
-        "height": 272,
-        "width": 432,
-        "color": 2
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        -2128,
-        -400
-      ],
-      "typeVersion": 1,
-      "id": "0439d8cc-cc29-4a79-b0e8-665b836cac95",
-      "name": "Sticky Note3"
-    },
-    {
-      "parameters": {
-        "content": "**💬 Slack Alerts**\n- Sends formatted notifications via our Slack App to the team.",
-        "height": 352,
-        "width": 416
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        -2112,
-        -784
-      ],
-      "typeVersion": 1,
-      "id": "4325d560-c49c-4d4a-842f-9f900801ba95",
-      "name": "Sticky Note4"
     }
   ],
   "pinData": {},
@@ -299,7 +297,59 @@
         ]
       ]
     },
-    "Youstable": {
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "YouStable",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Googiehost",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GH Client",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RDP",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "QHMain",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "QloudRDP",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouStable": {
       "main": [
         [
           {
@@ -310,62 +360,7 @@
         ]
       ]
     },
-    "RDP": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 2
-          }
-        ]
-      ]
-    },
-    "QH RDP": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 3
-          }
-        ]
-      ]
-    },
-    "QH Main": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 4
-          }
-        ]
-      ]
-    },
-    "QH Default": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 5
-          }
-        ]
-      ]
-    },
-    "GH Main": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 6
-          }
-        ]
-      ]
-    },
-    "GH clients": {
+    "Googiehost": {
       "main": [
         [
           {
@@ -376,54 +371,46 @@
         ]
       ]
     },
-    "Schedule Trigger1": {
+    "GH Client": {
       "main": [
         [
           {
-            "node": "Youstable",
+            "node": "Merge",
             "type": "main",
-            "index": 0
-          },
-          {
-            "node": "RDP",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "QH RDP",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "GH Main",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "GH clients",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "QH Main",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "QH Default",
-            "type": "main",
-            "index": 0
+            "index": 2
           }
         ]
       ]
     },
-    "Code1": {
+    "RDP": {
       "main": [
         [
           {
-            "node": "Send a message1",
+            "node": "Merge",
             "type": "main",
-            "index": 0
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "QHMain": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "QloudRDP": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
           }
         ]
       ]
@@ -435,7 +422,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "AXwE50ZnBg4eYGt9"
   },
-  "versionId": "338a0cdd-1920-4e65-a01c-e8a205463d6d",
+  "versionId": "4e19d3b7-89e4-4331-b28b-16ee5bd5825c",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0f12c85c960ef776acd46c75ba99b5fc9aaa7e1f1f72cb4de199d3bcc6b6e004"
